@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2021-06-20T15:19:40+0200
+# Last modified: 2021-06-20T16:43:58+0200
 """
 Converts lines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
@@ -15,13 +15,18 @@ Any z-coordinates in the dxf file are ignored.
 The generated output is a starting point for creating and extruding surfaces.
 """
 
+import collections as co
 import datetime
+import itertools as it
 import sys
 import logging
 import math
 
 # Distance within which coordinates are considered identical
 EPS = 1e-4
+
+# Output scaling factor; mm → m
+SCALE = 0.001
 
 
 def main(args):
@@ -31,7 +36,7 @@ def main(args):
     Arguments:
         args (sequence): command-line arguments.
     """
-    logging.basicConfig(level="INFO", format="%(levelname)s: %(message)s")
+    logging.basicConfig(level="INFO", format="# %(levelname)s: %(message)s")
     close = False
     if len(args) == 0:
         logging.error("not enough arguments")
@@ -80,6 +85,9 @@ def load(name):
 
     ents = entities(parse(name))
     contours = fromlayer(ents, "contour")
+    if len(contours) == 0:
+        logging.error("no entities in layer “contour”")
+
     unknown = set(bycode(e, 0) for e in contours) - {"ARC", "LINE"}
     for u in unknown:
         logging.warning(f"entities of type “{u}” will be ignored.")
@@ -111,6 +119,29 @@ def load(name):
     return points, lines, arcs
 
 
+def surfaces(lines, arcs):
+    """
+    Find closed loops of length 4.
+
+    Arguments:
+        lines: list of 2-tuples of indices (start, end) into the points list.
+        arcs: list of 3-tuples of indices (start, end, center) into the points list.
+
+    Returns:
+        A list of tuples defining surfaces.
+    """
+    geom = lines + [a[:2] for a in arcs]
+    # find closed loops of 4 entities
+    rv = []
+    for comb in it.combinations(geom, 4):
+        # Count how often each point occurs
+        c = co.Counter(it.chain(*comb))
+        # For a closed loop, all points should occur exactly twice.
+        if all(j == 2 for j in c.values()):
+            rv.append(tuple(geom.index(ln) + 1 for ln in comb))
+    return rv
+
+
 def write_fbd(stream, points, lines, arcs):
     """
     Write the points, lines and arcs to a CalculiX Graphics file.
@@ -128,7 +159,7 @@ def write_fbd(stream, points, lines, arcs):
     stream.write("\n# Points extracted from DXF\n")
     pprec = math.floor(math.log10(len(points))) + 1
     for n, p in enumerate(points, start=1):
-        stream.write(f"pnt P{n:0{pprec}d} 0.0 {p[0]:.5f} {p[1]:.5f}\n")
+        stream.write(f"pnt P{n:0{pprec}d} 0.0 {p[0]*SCALE:.7f} {p[1]*SCALE:.7f}\n")
 
     lprec = math.floor(math.log10(len(lines) + len(arcs))) + 1
     stream.write("\n# Lines extracted from DXF\n")
@@ -137,12 +168,23 @@ def write_fbd(stream, points, lines, arcs):
             f"line L{n:0{lprec}d} P{ln[0]+1:0{pprec}d} P{ln[1]+1:0{pprec}d} \n"
         )
 
-    stream.write("# Arcs extracted from DXF\n")
-    for n, ln in enumerate(arcs, start=len(lines) + 1):
-        stream.write(
-            f"line L{n:0{lprec}d} P{ln[0]+1:0{pprec}d} "
-            f"P{ln[1]+1:0{pprec}d} P{ln[2]+1:0{pprec}d} \n"
-        )
+    if arcs:
+        stream.write("# Arcs extracted from DXF\n")
+        for n, ln in enumerate(arcs, start=len(lines) + 1):
+            stream.write(
+                f"line L{n:0{lprec}d} P{ln[0]+1:0{pprec}d} "
+                f"P{ln[1]+1:0{pprec}d} P{ln[2]+1:0{pprec}d} \n"
+            )
+
+    surf = surfaces(lines, arcs)
+    if surf:
+        sprec = math.floor(math.log10(len(surf))) + 1
+        stream.write("\n# Detected surfaces\n")
+        for n, s in enumerate(surf, start=1):
+            stream.write(f"surf S{n:0{sprec}d}")
+            for ln in s:
+                stream.write(f" L{ln:0{lprec}d}")
+            stream.write("\n")
 
     # Footer
     stream.write("\n# Show geometry up to now\n")
