@@ -1,11 +1,11 @@
-Converting DXF scetches to CalculiX FBD format
+Converting DXF sketches to CalculiX FBD format
 ##############################################
 
 :date: 2021-06-20
 :tags: CalculiX, DXF
 :author: Roland Smith
 
-.. Last modified: 2021-06-20T17:47:04+0200
+.. Last modified: 2021-06-20T18:15:36+0200
 .. vim:spelllang=en
 
 Introduction
@@ -14,8 +14,8 @@ Introduction
 The author regularly creates extrusions (using “swep”) in CalculiX Graphics.
 Doing this manually is a relatively time-consuming process.
 
-For a non-parametric part, it is easier to scetch the geometry in a 2D CAD
-program like LibreCAD_, and then convert that scetch to instructions for
+For a non-parametric part, it is easier to sketch the geometry in a 2D CAD
+program like LibreCAD_, and then convert that sketch to instructions for
 CalculiX Graphics.
 
 .. _LibreCAD: https://librecad.org/
@@ -56,7 +56,7 @@ Requirements
 ============
 
 This program requires at least Python 3.6.
-It has no library requirments outside of the Python standard library.
+It has no library requirements outside of the Python standard library.
 This version was developed and tested using Python 3.7 and 3.9.
 
 
@@ -68,7 +68,7 @@ To install it for the local user, run::
     python setup.py install
 
 This will install it in the user path for Python scripts.
-For POSIX operating systems this is ususally ``~/.local/bin``.
+For POSIX operating systems this is usually ``~/.local/bin``.
 For ms-windows this is the ``Scripts`` directory of your Python installation
 or another local directory.
 Make sure that this directory is in your ``$PATH`` environment variable.
