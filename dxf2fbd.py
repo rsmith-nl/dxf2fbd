@@ -5,9 +5,9 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2021-06-20T19:01:54+0200
+# Last modified: 2023-08-05T13:11:29+0200
 """
-Converts lines and arcs from the layer named “contour” in a DXF file to
+Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
 
 The XY plane in the dxf file is converted to the YZ plane in the fbd file.
@@ -28,7 +28,7 @@ import logging
 import os
 import math
 
-__version__ = "2021.06.20"
+__version__ = "2023.08.05"
 # Default distance within which coordinates are considered identical
 EPS = 1e-4
 # Default output scaling factor; mm*SCALE → m
@@ -121,7 +121,7 @@ def load(name, tolerance):
     if len(contours) == 0:
         logging.error("no entities in layer “contour”")
 
-    unknown = set(bycode(e, 0) for e in contours) - {"ARC", "LINE"}
+    unknown = set(bycode(e, 0) for e in contours) - {"ARC", "LINE", "LWPOLYLINE"}
     for u in unknown:
         logging.warning(f"entities of type “{u}” will be ignored.")
     points = []  # list of (y,z) coordinates
@@ -149,6 +149,12 @@ def load(name, tolerance):
         startidx = pntidx(startcoord)
         endidx = pntidx(endcoord)
         arcs.append((startidx, endidx, cenidx))
+    for lwp in [e for e in contours if bycode(e, 0) == "LWPOLYLINE"]:
+        xvals = (float(j) for j in bycode(lwp, 10))
+        yvals = (float(j) for j in bycode(lwp, 20))
+        lwpix = [pntidx(x, y) for x, y in zip(xvals, yvals)]
+        for si, ei in zip(lwpix[:-1], lwpix[1:]):
+            lines.append((si, ei))
     return points, lines, arcs
 
 
@@ -226,6 +232,7 @@ def write_fbd(stream, points, lines, arcs, path, scale):
             stream.write(os.linesep)
 
     # Footer
+    stream.write("# End of extracted data." + os.linesep)
     stream.write(os.linesep + "# Show geometry up to now" + os.linesep)
     stream.write("plot pa all" + os.linesep)
     stream.write("plus la all" + os.linesep)
@@ -268,9 +275,8 @@ def entities(data):
     entdata = data[soe + 1 : eoe]
     idx = [n for n, d in enumerate(entdata) if d[0] == 0] + [len(entdata)]
     pairs = list(zip(idx, idx[1:]))
-    # FIXME: dict doesn't work with LWPOLYLINE, which has multiple groups
-    # 10 and 20:
-    # entities = [dict(entdata[b:e]) for b, e in pairs]
+    # NOTE: don't use a dict for entities! Some entities like LWPOLYLINE
+    # have multiple groups 10 and 20.
     entities = [tuple(entdata[b:e]) for b, e in pairs]
     return entities
 
