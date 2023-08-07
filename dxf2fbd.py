@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-05T13:11:29+0200
+# Last modified: 2023-08-07T15:41:07+0200
 """
 Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
@@ -48,14 +48,14 @@ def main(args):
         "--tolerance",
         type=float,
         default=EPS,
-        help=f"minimum difference between distinct coordinates (default: {EPS})"
+        help=f"minimum difference between distinct coordinates (default: {EPS})",
     )
     opts.add_argument(
         "-s",
         "--scale",
         type=float,
         default=SCALE,
-        help=f"scaling factor from DXF to CalculiX (default: {SCALE})"
+        help=f"scaling factor from DXF to CalculiX (default: {SCALE})",
     )
     opts.add_argument("-v", "--version", action="version", version=__version__)
     opts.add_argument(
@@ -64,22 +64,18 @@ def main(args):
         choices=["debug", "info", "warning", "error"],
         help="logging level (defaults to 'warning')",
     )
-    opts.add_argument(
-        "infile",
-        type=str,
-        help="path to input file"
-    )
+    opts.add_argument("infile", type=str, help="path to input file")
     opts.add_argument(
         "outfile",
         nargs="?",
-        type=argparse.FileType('w'),
+        type=argparse.FileType("w"),
         default=sys.stdout,
-        help="path to output file (default: standard output)"
+        help="path to output file (default: standard output)",
     )
     args = opts.parse_args(args)
     logging.basicConfig(
         level=getattr(logging, args.log.upper(), None),
-        format="# %(levelname)s: %(message)s"
+        format="# %(levelname)s: %(message)s",
     )
     try:
         points, lines, arcs = load(args.infile, args.tolerance)
