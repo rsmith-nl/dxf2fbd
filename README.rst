@@ -1,11 +1,11 @@
 Converting DXF sketches to CalculiX FBD format
 ##############################################
 
-:date: 2021-06-20
+:date: 2023-08-07
 :tags: CalculiX, DXF
 :author: Roland Smith
 
-.. Last modified: 2021-06-20T18:15:36+0200
+.. Last modified: 2023-08-07T21:46:30+0200
 .. vim:spelllang=en
 
 Introduction
@@ -27,8 +27,9 @@ This is what ``dxf2fbd.py`` does.
 What it does
 ============
 
-It looks in the layer named “contour” in the DXF files, and extracts LINE and
-ARC entities. *Other entities and layers are ignored.*
+It looks in the layer named “contour” in the DXF files, and extracts LINE,
+ARC, LWPOLYLINE and ELLIPSE entities. *Other entities and layers are ignored.*
+Note that for now, it only handles partial (open) ellipses.
 
 It outputs CalculiX Graphics commands for creating these points, lines and
 arcs.
@@ -40,24 +41,28 @@ set in the global ``EPS`` value.
 The scaling factor for point coordinates is set in the global ``SCALE`` value.
 Currently it is set to convert millimeters in DXF to meters in CalculiX.
 
-The program looks for sets of four lines that form a closed loop.
+The program looks for sets of 3--5 lines that form a closed loop.
 Those will be defined as surfaces.
+
 
 What it doesn't do
 ==================
 
 * Set line divisions
+* Make line combinations
 * Create sets
 
 In the view of the author, these are best left to the operator.
+When creating a DXF file, the operator should keep the properties of surfaces
+in CalculiX graphics in mind when creating them.
 
 
 Requirements
 ============
 
-This program requires at least Python 3.6.
+This program should run on Python 3.6 or later.
 It has no library requirements outside of the Python standard library.
-This version was developed and tested using Python 3.7 and 3.9.
+This version has been developed and tested using Python 3.9.
 
 
 Installation
