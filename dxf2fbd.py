@@ -5,10 +5,11 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-07T19:43:57+0200
+# Last modified: 2023-08-07T19:54:40+0200
 """
-Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
-equivalents in an FBD file, suitable for showing with “cgx -b”.
+Converts lines, lwpolylines, arcs and partial ellipses from the layer named
+“contour” in a DXF file to equivalents in an FBD file, suitable for showing
+with “cgx -b”.
 
 The XY plane in the dxf file is converted to the YZ plane in the fbd file.
 Any Z-coordinates in the dxf file are ignored.
@@ -200,6 +201,8 @@ def surfaces(lines, arcs, splines):
     Returns:
         A list of tuples defining surfaces.
     """
+    # geom has to be built up in the same sequence here as lines, arcs and
+    # splines are handled below in write_fbd!
     geom = lines + [a[:2] for a in arcs] + [s[:2] for s in splines]
     # find closed loops of 4 entities
     rv = []
