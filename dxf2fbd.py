@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-07T17:57:49+0200
+# Last modified: 2023-08-07T18:29:26+0200
 """
 Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
@@ -254,8 +254,14 @@ def write_fbd(stream, points, lines, arcs, splines, path, scale):
     if splines:
         stream.write("# Ellipes/splines extracted from DXF" + os.linesep)
         for n, sp in enumerate(splines, start=len(lines)+len(arcs)+1):
-            # TODO
-            pass
+            cps = [f"P{k+1:0{pprec}d}" for k in sp[2:]]
+            sstr = f"seqa S{n:0{lprec}d} " + ' '.join(cps) + os.linesep
+            stream.write(sstr)
+            stream.write(
+                f"line L{n:0{lprec}d} P{sp[0]+1:0{pprec}d} P{sp[1]+1:0{pprec}d} "
+                + f"S{n:0{lprec}d}"
+                + os.linesep
+            )
 
     surf = surfaces(lines, arcs, splines)
     if surf:
