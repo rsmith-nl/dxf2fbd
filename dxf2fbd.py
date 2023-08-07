@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-07T19:25:21+0200
+# Last modified: 2023-08-07T19:43:57+0200
 """
 Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
@@ -168,6 +168,8 @@ def load(name, tolerance):  # noqa
         cosφ, sinφ = dx / a, dy / a
         b = float(bycode(ell, 40)) * a
         start, end = float(bycode(ell, 41)), float(bycode(ell, 42))
+        while start > end:
+            end += 2 * math.pi
         arc = end - start
         segments = math.ceil(arc / segment_angle)
         da = arc / segments
@@ -178,6 +180,7 @@ def load(name, tolerance):  # noqa
             (x * cosφ - y * sinφ + cx, x * sinφ + y * cosφ + cy) for x, y in spoints
         )
         indices = [pntidx((x, y)) for x, y in spoints]
+        print(f"DEBUG: indices = {indices}")
         last = indices[-1]
         indices = indices[:-1]
         indices.insert(1, last)
@@ -210,7 +213,7 @@ def surfaces(lines, arcs, splines):
     return rv
 
 
-def write_fbd(stream, points, lines, arcs, splines, path, scale):
+def write_fbd(stream, points, lines, arcs, splines, path, scale): # noqa
     """
     Write the points, lines, arcs and splines to a CalculiX Graphics file.
 
@@ -237,15 +240,16 @@ def write_fbd(stream, points, lines, arcs, splines, path, scale):
 
     lprec = math.floor(math.log10(len(lines) + len(arcs) + len(splines))) + 1
 
-    stream.write(os.linesep + "# Lines extracted from DXF" + os.linesep)
-    for n, ln in enumerate(lines, start=1):
-        stream.write(
-            f"line L{n:0{lprec}d} P{ln[0]+1:0{pprec}d} P{ln[1]+1:0{pprec}d} "
-            + os.linesep
-        )
+    if lines:
+        stream.write(os.linesep + "# Lines extracted from DXF" + os.linesep)
+        for n, ln in enumerate(lines, start=1):
+            stream.write(
+                f"line L{n:0{lprec}d} P{ln[0]+1:0{pprec}d} P{ln[1]+1:0{pprec}d} "
+                + os.linesep
+            )
 
     if arcs:
-        stream.write("# Arcs extracted from DXF" + os.linesep)
+        stream.write(os.linesep + "# Arcs extracted from DXF" + os.linesep)
         for n, ln in enumerate(arcs, start=len(lines) + 1):
             stream.write(
                 f"line L{n:0{lprec}d} P{ln[0]+1:0{pprec}d} "
@@ -253,10 +257,10 @@ def write_fbd(stream, points, lines, arcs, splines, path, scale):
             )
 
     if splines:
-        stream.write("# Ellipes/splines extracted from DXF" + os.linesep)
+        stream.write(os.linesep + "# Ellipes/splines extracted from DXF" + os.linesep)
         for n, sp in enumerate(splines, start=len(lines)+len(arcs)+1):
             cps = [f"P{k+1:0{pprec}d}" for k in sp[2:]]
-            sstr = f"seqa S{n:0{lprec}d} " + ' '.join(cps) + os.linesep
+            sstr = f"seqa S{n:0{lprec}d} pnt " + ' '.join(cps) + os.linesep
             stream.write(sstr)
             stream.write(
                 f"line L{n:0{lprec}d} P{sp[0]+1:0{pprec}d} P{sp[1]+1:0{pprec}d} "
