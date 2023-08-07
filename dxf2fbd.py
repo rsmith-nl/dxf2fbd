@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-07T15:41:07+0200
+# Last modified: 2023-08-07T17:57:49+0200
 """
 Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
@@ -28,7 +28,7 @@ import logging
 import os
 import math
 
-__version__ = "2023.08.05"
+__version__ = "2023.08.07"
 # Default distance within which coordinates are considered identical
 EPS = 1e-4
 # Default output scaling factor; mm*SCALE → m
@@ -78,19 +78,19 @@ def main(args):
         format="# %(levelname)s: %(message)s",
     )
     try:
-        points, lines, arcs = load(args.infile, args.tolerance)
+        points, lines, arcs, splines = load(args.infile, args.tolerance)
     except OSError:
         logging.error(f"cannot open file “{args.infile}”")
         sys.exit(2)
     if len(points) == 0:
         logging.error("no points found")
         sys.exit(3)
-    write_fbd(args.outfile, points, lines, arcs, args.infile, args.scale)
+    write_fbd(args.outfile, points, lines, arcs, splines, args.infile, args.scale)
     if args.outfile != sys.stdout:
         args.outfile.close()
 
 
-def load(name, tolerance):
+def load(name, tolerance):  # noqa
     """
     Load the drawing entities from the “contour” layer from a DXF file.
 
@@ -102,6 +102,7 @@ def load(name, tolerance):
         points: list of 2-tuples of coordinate strings.
         lines: list of 2-tuples of indices (start, end) into the points list.
         arcs: list of 3-tuples of indices (start, end, center) into the points list.
+        splines: list of n-tuples indices (start, end, ...) into the points list.
     """
 
     def pntidx(item):
@@ -117,7 +118,12 @@ def load(name, tolerance):
     if len(contours) == 0:
         logging.error("no entities in layer “contour”")
 
-    unknown = set(bycode(e, 0) for e in contours) - {"ARC", "LINE", "LWPOLYLINE"}
+    unknown = set(bycode(e, 0) for e in contours) - {
+        "ARC",
+        "LINE",
+        "LWPOLYLINE",
+        "ELLIPSE",
+    }
     for u in unknown:
         logging.warning(f"entities of type “{u}” will be ignored.")
     points = []  # list of (y,z) coordinates
@@ -151,41 +157,68 @@ def load(name, tolerance):
         lwpix = [pntidx(x, y) for x, y in zip(xvals, yvals)]
         for si, ei in zip(lwpix[:-1], lwpix[1:]):
             lines.append((si, ei))
-    return points, lines, arcs
+    splines = []
+    # We need ≥7 segments in 90° to make a decent elliptical arc.
+    segment_angle = math.pi / (2 * 7)
+    # Generate splines to represent an elliptical arc.
+    for ell in [e for e in contours if bycode(e, 0) == "ELLIPSE"]:
+        cx, cy = float(bycode(ell, 10)), float(bycode(ell, 20))
+        dx, dy = float(bycode(ell, 11)), float(bycode(ell, 21))
+        a = math.sqrt(dx**2 + dy**2)
+        cosφ, sinφ = dx / a, dy / a
+        b = float(bycode(ell, 40)) * a
+        start, end = float(bycode(ell, 41)), float(bycode(ell, 42))
+        arc = end - start
+        segments = math.ceil(arc / segment_angle)
+        da = arc / segments
+        angles = (j * da + start for j in range(segments + 1))
+        spoints = ((a * math.cos(t), b * math.sin(t)) for t in angles)
+        # transform to global coordinates
+        spoints = (
+            (x * cosφ - y * sinφ + cx, x * sinφ + y * cosφ + cy) for x, y in spoints
+        )
+        indices = [pntidx(x, y) for x, y in spoints]
+        last = indices[-1]
+        indices = indices[:-1].insert(1, last)
+        splines.append(tuple(indices))
+    return points, lines, arcs, splines
 
 
-def surfaces(lines, arcs):
+def surfaces(lines, arcs, splines):
     """
-    Find closed loops of length 4.
+    Find closed loops of length 3--5.
 
     Arguments:
         lines: list of 2-tuples of indices (start, end) into the points list.
         arcs: list of 3-tuples of indices (start, end, center) into the points list.
+        splines: list of n-tuples indices (start, end, ...) into the points list.
 
     Returns:
         A list of tuples defining surfaces.
     """
-    geom = lines + [a[:2] for a in arcs]
+    geom = lines + [a[:2] for a in arcs] + [s[:2] for s in splines]
     # find closed loops of 4 entities
     rv = []
-    for comb in it.combinations(geom, 4):
-        # Count how often each point occurs
-        c = co.Counter(it.chain(*comb))
-        # For a closed loop, all points should occur exactly twice.
-        if all(j == 2 for j in c.values()):
-            rv.append(tuple(geom.index(ln) + 1 for ln in comb))
+    for length in (3, 4, 5):
+        for comb in it.combinations(geom, length):
+            # Count how often each point occurs
+            c = co.Counter(it.chain(*comb))
+            # For a closed loop, all points should occur exactly twice.
+            if all(j == 2 for j in c.values()):
+                rv.append(tuple(geom.index(ln) + 1 for ln in comb))
     return rv
 
 
-def write_fbd(stream, points, lines, arcs, path, scale):
+def write_fbd(stream, points, lines, arcs, splines, path, scale):
     """
-    Write the points, lines and arcs to a CalculiX Graphics file.
+    Write the points, lines, arcs and splines to a CalculiX Graphics file.
 
     Arguments:
         stream: file to write to.
         points: list of 2-tuples of coordinate strings.
         lines: list of 2-tuples of indices (start, end) into the points list.
         arcs: list of 3-tuples of indices (start, end, center) into the points list.
+        splines: list of n-tuples indices (start, end, ...) into the points list.
         path: path to the original DXF file.
         scale: factor to scale DXF coordinates with.
     """
@@ -201,7 +234,8 @@ def write_fbd(stream, points, lines, arcs, path, scale):
             f"pnt P{n:0{pprec}d} 0.0 {p[0]*scale:.7f} {p[1]*scale:.7f}" + os.linesep
         )
 
-    lprec = math.floor(math.log10(len(lines) + len(arcs))) + 1
+    lprec = math.floor(math.log10(len(lines) + len(arcs) + len(splines))) + 1
+
     stream.write(os.linesep + "# Lines extracted from DXF" + os.linesep)
     for n, ln in enumerate(lines, start=1):
         stream.write(
@@ -217,7 +251,13 @@ def write_fbd(stream, points, lines, arcs, path, scale):
                 f"P{ln[1]+1:0{pprec}d} P{ln[2]+1:0{pprec}d} " + os.linesep
             )
 
-    surf = surfaces(lines, arcs)
+    if splines:
+        stream.write("# Ellipes/splines extracted from DXF" + os.linesep)
+        for n, sp in enumerate(splines, start=len(lines)+len(arcs)+1):
+            # TODO
+            pass
+
+    surf = surfaces(lines, arcs, splines)
     if surf:
         sprec = math.floor(math.log10(len(surf))) + 1
         stream.write(os.linesep + "# Detected surfaces" + os.linesep)
