@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-07T18:29:26+0200
+# Last modified: 2023-08-07T19:24:22+0200
 """
 Converts lines, lwpolylines and arcs from the layer named “contour” in a DXF file to
 equivalents in an FBD file, suitable for showing with “cgx -b”.
@@ -154,7 +154,7 @@ def load(name, tolerance):  # noqa
     for lwp in [e for e in contours if bycode(e, 0) == "LWPOLYLINE"]:
         xvals = (float(j) for j in bycode(lwp, 10))
         yvals = (float(j) for j in bycode(lwp, 20))
-        lwpix = [pntidx(x, y) for x, y in zip(xvals, yvals)]
+        lwpix = [pntidx((x, y)) for x, y in zip(xvals, yvals)]
         for si, ei in zip(lwpix[:-1], lwpix[1:]):
             lines.append((si, ei))
     splines = []
@@ -177,7 +177,7 @@ def load(name, tolerance):  # noqa
         spoints = (
             (x * cosφ - y * sinφ + cx, x * sinφ + y * cosφ + cy) for x, y in spoints
         )
-        indices = [pntidx(x, y) for x, y in spoints]
+        indices = [pntidx((x, y)) for x, y in spoints]
         last = indices[-1]
         indices = indices[:-1].insert(1, last)
         splines.append(tuple(indices))
