@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-08T14:48:01+0200
+# Last modified: 2023-08-08T14:59:29+0200
 """
 Converts lines, lwpolylines, arcs and partial ellipses from the layer named
 “contour” in a DXF file to equivalents in an FBD file, suitable for showing
@@ -91,7 +91,7 @@ def main(args):
         args.outfile.close()
 
 
-def load(name, tolerance):  # noqa
+def load(name, tolerance):
     """
     Load the drawing entities from the “contour” layer from a DXF file.
 
@@ -216,7 +216,7 @@ def surfaces(lines, arcs, splines):
     return rv
 
 
-def write_fbd(stream, points, lines, arcs, splines, path, scale):  # noqa
+def write_fbd(stream, points, lines, arcs, splines, path, scale):
     """
     Write the points, lines, arcs and splines to a CalculiX Graphics file.
 
