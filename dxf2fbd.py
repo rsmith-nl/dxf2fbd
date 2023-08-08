@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-08T21:07:36+0200
+# Last modified: 2023-08-09T11:02:25+0200
 """
 Converts lines, lwpolylines, arcs and partial ellipses from the layer named
 “contour” in a DXF file to equivalents in an FBD file, suitable for showing
@@ -29,7 +29,7 @@ import logging
 import os
 import math
 
-__version__ = "2023.08.08"
+__version__ = "2023.08.09"
 # Default distance within which coordinates are considered identical
 EPS = 1e-4
 # Default output scaling factor; mm*SCALE → m
@@ -106,19 +106,26 @@ def load(name, tolerance):
         splines: list of n-tuples indices (start, end, ...) into the points list.
     """
 
-    def pntidx(item):
+    def pntidx(pnt):
+        """
+        Determine if the given pnt is in the points list.
+        If not add it to the list.
+        Return the index of pnt in points.
+        """
         for n, (a, b) in enumerate(points):
-            da, db = abs(float(a) - item[0]), abs(float(b) - item[1])
-            if da < tolerance and db < tolerance:
+            if (
+                abs(float(a) - pnt[0]) < tolerance
+                and abs(float(b) - pnt[1]) < tolerance
+            ):
                 return n
-        points.append((item[0], item[1]))
+        points.append(pnt)
         return len(points) - 1
 
     ents = entities(parse(name))
     contours = fromlayer(ents, "contour")
     if len(contours) == 0:
-        logging.error("no entities in layer “contour”")
-
+        logging.error("no entities in layer “contour”: nothing to do")
+        sys.exit(1)
     unknown = set(bycode(e, 0) for e in contours) - {
         "ARC",
         "LINE",
@@ -211,9 +218,7 @@ def load(name, tolerance):
             splines.append(tuple(indices))
         else:
             # TODO: split closed ellipses into four curves!
-            logging.info(
-                f"closed ellipse with center ({cx},{cy}) ignored"
-            )
+            logging.info(f"closed ellipse with center ({cx},{cy}) ignored")
     return points, lines, arcs, splines
 
 
