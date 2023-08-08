@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-08T11:14:43+0200
+# Last modified: 2023-08-08T14:48:01+0200
 """
 Converts lines, lwpolylines, arcs and partial ellipses from the layer named
 “contour” in a DXF file to equivalents in an FBD file, suitable for showing
@@ -216,7 +216,7 @@ def surfaces(lines, arcs, splines):
     return rv
 
 
-def write_fbd(stream, points, lines, arcs, splines, path, scale): # noqa
+def write_fbd(stream, points, lines, arcs, splines, path, scale):  # noqa
     """
     Write the points, lines, arcs and splines to a CalculiX Graphics file.
 
@@ -261,9 +261,9 @@ def write_fbd(stream, points, lines, arcs, splines, path, scale): # noqa
 
     if splines:
         stream.write(os.linesep + "# Ellipes/splines extracted from DXF" + os.linesep)
-        for n, sp in enumerate(splines, start=len(lines)+len(arcs)+1):
+        for n, sp in enumerate(splines, start=len(lines) + len(arcs) + 1):
             cps = [f"P{k+1:0{pprec}d}" for k in sp[2:]]
-            sstr = f"seqa Q{n:0{lprec}d} pnt " + ' '.join(cps) + os.linesep
+            sstr = f"seqa Q{n:0{lprec}d} pnt " + " ".join(cps) + os.linesep
             stream.write(sstr)
             stream.write(
                 f"line L{n:0{lprec}d} P{sp[0]+1:0{pprec}d} P{sp[1]+1:0{pprec}d} "
@@ -276,7 +276,7 @@ def write_fbd(stream, points, lines, arcs, splines, path, scale): # noqa
         sprec = math.floor(math.log10(len(surf))) + 1
         stream.write(os.linesep + "# Detected surfaces" + os.linesep)
         for n, s in enumerate(surf, start=1):
-            stream.write(f"surf S{n:0{sprec}d}")
+            stream.write(f"surf S{n:0{sprec}d} blend")
             for ln in s:
                 stream.write(f" L{ln:0{lprec}d}")
             stream.write(os.linesep)
