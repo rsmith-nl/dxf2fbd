@@ -5,7 +5,7 @@
 # Copyright © 2021 R.F. Smith <rsmith@xs4all.nl>
 # SPDX-License-Identifier: MIT
 # Created: 2021-06-19T21:37:08+0200
-# Last modified: 2023-08-08T14:59:29+0200
+# Last modified: 2023-08-08T21:07:36+0200
 """
 Converts lines, lwpolylines, arcs and partial ellipses from the layer named
 “contour” in a DXF file to equivalents in an FBD file, suitable for showing
@@ -132,7 +132,12 @@ def load(name, tolerance):
     for ln in [e for e in contours if bycode(e, 0) == "LINE"]:
         startidx = pntidx((float(bycode(ln, 10)), float(bycode(ln, 20))))
         endidx = pntidx((float(bycode(ln, 11)), float(bycode(ln, 21))))
-        lines.append((startidx, endidx))
+        if startidx != endidx:
+            lines.append((startidx, endidx))
+        else:
+            logging.info(
+                f"0-length line from {points[startidx]} to {points[endidx]} ignored"
+            )
     arcs = []
     for arc in [e for e in contours if bycode(e, 0) == "ARC"]:
         center = (float(bycode(arc, 10)), float(bycode(arc, 20)))
@@ -151,13 +156,25 @@ def load(name, tolerance):
         )
         startidx = pntidx(startcoord)
         endidx = pntidx(endcoord)
-        arcs.append((startidx, endidx, cenidx))
+        if startidx != endidx and cenidx != startidx and cenidx != endidx:
+            arcs.append((startidx, endidx, cenidx))
+        else:
+            logging.info(
+                f"malformed arc from {points[startidx]} to {points[endidx]},"
+                f" center {points[cenidx]} ignored"
+            )
     for lwp in [e for e in contours if bycode(e, 0) == "LWPOLYLINE"]:
         xvals = (float(j) for j in bycode(lwp, 10))
         yvals = (float(j) for j in bycode(lwp, 20))
         lwpix = [pntidx((x, y)) for x, y in zip(xvals, yvals)]
         for si, ei in zip(lwpix[:-1], lwpix[1:]):
-            lines.append((si, ei))
+            if si != ei:
+                lines.append((si, ei))
+            else:
+                logging.info(
+                    "0-length polyline segment from "
+                    f"{points[si]} to {points[ei]} ignored"
+                )
     splines = []
     # We need ≥7 segments in 90° to make a decent elliptical arc.
     segment_angle = math.pi / (2 * 7)
@@ -166,12 +183,18 @@ def load(name, tolerance):
         cx, cy = float(bycode(ell, 10)), float(bycode(ell, 20))
         dx, dy = float(bycode(ell, 11)), float(bycode(ell, 21))
         a = math.sqrt(dx**2 + dy**2)
+        if a < EPS:
+            logging.info(f"very small ellipse (a < {EPS}) ignored")
+            continue
         cosφ, sinφ = dx / a, dy / a
         b = float(bycode(ell, 40)) * a
         start, end = float(bycode(ell, 41)), float(bycode(ell, 42))
         while start > end:
             end += 2 * math.pi
         arc = end - start
+        if arc < EPS:
+            logging.info(f"very small ellipse (arc < {EPS}) ignored")
+            continue
         segments = math.ceil(arc / segment_angle)
         da = arc / segments
         angles = (j * da + start for j in range(segments + 1))
@@ -184,8 +207,13 @@ def load(name, tolerance):
         last = indices[-1]
         indices = indices[:-1]
         indices.insert(1, last)
-        # TODO: split closed ellipses into four curves!
-        splines.append(tuple(indices))
+        if indices[0] != indices[1]:
+            splines.append(tuple(indices))
+        else:
+            # TODO: split closed ellipses into four curves!
+            logging.info(
+                f"closed ellipse with center ({cx},{cy}) ignored"
+            )
     return points, lines, arcs, splines
 
 
