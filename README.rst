@@ -5,7 +5,7 @@ Converting DXF sketches to CalculiX FBD format
 :tags: CalculiX, DXF
 :author: Roland Smith
 
-.. Last modified: 2023-08-07T21:46:30+0200
+.. Last modified: 2026-05-10T13:47:01+0200
 .. vim:spelllang=en
 
 Introduction
@@ -23,6 +23,16 @@ CalculiX Graphics.
 This is what ``dxf2fbd.py`` does.
 
 .. PELICAN_END_SUMMARY
+
+
+No AI policy
+============
+
+This program is written by a human and for humans.
+
+Writing a program such as this requires domain expertise and judgement.
+Therefore “AI” / LLM-generated rewrites and additions are not welcome.
+
 
 What it does
 ============
